@@ -1,6 +1,9 @@
 import math
 import numpy as np
 from stl import mesh
+import numpy as np
+from typing import Iterable, List, Sequence, Tuple, Union
+
 
 # 定义数学常量
 sqrt3 = math.sqrt(3)
@@ -43,8 +46,33 @@ edges = [
     (points_list[2], points_list[13])   # 15:(1,√3,0)->(1/3,√3/3,2)
 ]
 
-def create_cube(center, half_size=0.05):
-    """为给定中心点创建立方体的三角形面"""
+# ---------- 类型别名 ----------
+Vertex   = Tuple[float, float, float]          # 立方体的一个顶点 (x, y, z)
+Triangle = Tuple[Vertex, Vertex, Vertex]       # 三角形由三个顶点组成
+CubeFaces = List[Triangle]                     # 所有三角形面的列表
+
+# ---------- 主函数 ----------
+def create_cube(
+    center: Sequence[float],
+    half_size: float = 0.05
+) -> CubeFaces:
+    """
+    为给定中心点创建立方体的三角形面。
+
+    Parameters
+    ----------
+    center : Sequence[float]
+        立方体中心坐标 (x, y, z)。  
+        可以是列表、元组或任何可迭代的浮点数序列。
+    half_size : float, optional
+        半尺寸（即从中心到任一面的一半距离），默认 0.05。
+
+    Returns
+    -------
+    List[Tuple[Vertex, Vertex, Vertex]]
+        一个包含 12 个三角形面的列表，每个三角形由三个顶点组成。  
+        每个顶点是一个 `(x, y, z)` 的元组。
+    """
     x, y, z = center
     vertices = [
         (x - half_size, y - half_size, z - half_size),
@@ -67,8 +95,36 @@ def create_cube(center, half_size=0.05):
     ]
     return [(vertices[i], vertices[j], vertices[k]) for i, j, k in faces]
 
-def create_beam(start, end, half_width=0.05):
-    """创建连接两点的长方体梁的三角形面"""
+# ---------- 类型别名 ----------
+Vertex = np.typing.NDArray[np.floating]          # 形状 (3,) 的浮点向量
+Triangle = Tuple[Vertex, Vertex, Vertex]         # 三角形的三个顶点
+BeamFaces = List[Triangle]                       # 所有三角形组成的列表
+
+
+# ---------- 主函数 ----------
+def create_beam(
+    start: Union[Sequence[float], np.ndarray],
+    end:   Union[Sequence[float], np.ndarray],
+    half_width: float = 0.05
+) -> BeamFaces:
+    """
+    为给定中心点创建立方体的三角形面。
+
+    Parameters
+    ----------
+    center : Sequence[float]
+        立方体中心坐标 (x, y, z)。  
+        可以是列表、元组或任何可迭代的浮点数序列。
+    half_size : float, optional
+        半尺寸（即从中心到任一面的一半距离），默认 0.05。
+
+    Returns
+    -------
+    List[Tuple[Vertex, Vertex, Vertex]]
+        一个包含 12 个三角形面的列表，每个三角形由三个顶点组成。  
+        每个顶点是一个 `(x, y, z)` 的元组。
+    """
+    
     start = np.array(start)
     end = np.array(end)
     direction = end - start
@@ -120,24 +176,55 @@ def create_beam(start, end, half_width=0.05):
         [3, 7, 0], [0, 7, 4]
     ]
     return [(vertices[i], vertices[j], vertices[k]) for i, j, k in faces]
+# ---------- 类型别名 ----------
+Vertex      = Tuple[float, float, float]
+Edge        = Tuple[Vertex, Vertex]
+PointList   = Iterable[Vertex]
+EdgeList    = Iterable[Edge]
 
-# 收集所有三角形面
-all_faces = []
+# ---------- 主函数 ----------
+def generate_stl(
+    points_list: PointList,
+    edges: EdgeList
+) -> mesh.Mesh:
+    """
+    根据给定的点集合和边集合生成 STL 网格。
 
-# 为每个点创建立方体
-for point in points_list:
-    all_faces.extend(create_cube(point))
+    Parameters
+    ----------
+    points_list : Iterable[Tuple[float, float, float]]
+        需要放置立方体的所有点坐标。
+    edges : Iterable[Tuple[Tuple[float, float, float], Tuple[float, float, float]]]
+        每条边由起点和终点两点组成；将为每条边创建一根梁。
 
-# 为每条边创建梁
-for edge in edges:
-    all_faces.extend(create_beam(edge[0], edge[1]))
+    Returns
+    -------
+    stl_mesh : stl.mesh.Mesh
+        生成的 STL 网格，包含所有立方体与梁的三角面。
+    """
+    all_faces = []
 
-# 创建STL网格
-stl_mesh = mesh.Mesh(np.zeros(len(all_faces), dtype=mesh.Mesh.dtype))
-for i, face in enumerate(all_faces):
-    for j in range(3):
-        stl_mesh.vectors[i][j] = face[j]
+    # 为每个点创建立方体
+    for point in points_list:
+        all_faces.extend(create_cube(point))
 
-# 保存STL文件
-stl_mesh.save('frame_model.stl')
-print("STL文件已保存为 'frame_model.stl'")
+    # 为每条边创建梁
+    for edge in edges:
+        all_faces.extend(create_beam(edge[0], edge[1]))
+
+    # 创建STL网格
+    stl_mesh = mesh.Mesh(np.zeros(len(all_faces), dtype=mesh.Mesh.dtype))
+    for i, face in enumerate(all_faces):
+        for j in range(3):
+            stl_mesh.vectors[i][j] = face[j]
+    
+    return stl_mesh
+
+
+
+if __name__ == "__main__":
+    k =  generate_stl(points_list, edges)
+        # 保存STL文件
+    filename='frame_model.stl'
+    k.save(filename)
+    print(f"STL文件已保存为 '{filename}'")
